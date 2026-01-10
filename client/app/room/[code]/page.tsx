@@ -126,7 +126,8 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomCode || !nickname) return;
 
-    const newSocket = io('http://localhost:3001', {
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+    const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
