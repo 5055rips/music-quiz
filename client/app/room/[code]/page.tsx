@@ -312,7 +312,7 @@ export default function RoomPage() {
             <span className="text-xl">←</span> Back to Home
           </a>
           <div className="text-sm text-gray-400">
-            {socket?.connected ? '🟢 Connected' : socket?.connecting ? '🟡 Connecting...' : '🔴 Disconnected'}
+            {socket?.connected ? '🟢 Connected' : '🟡 Connecting...'}
           </div>
         </div>
 
