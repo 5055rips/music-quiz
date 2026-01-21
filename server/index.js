@@ -122,6 +122,65 @@ function deleteRoom(roomCode) {
   console.log(`Room ${roomCode} deleted`);
 }
 
+// Rotate host to next player
+function rotateHost(roomCode) {
+  const room = rooms.get(roomCode);
+  if (!room) {
+    console.log('Room not found for rotation:', roomCode);
+    return;
+  }
+
+  console.log('Rotating host...');
+  console.log('Current players:', room.players.map(p => ({ nickname: p.nickname, isHost: p.isHost })));
+  
+  try {
+    // Find current host index
+    const currentHostIndex = room.players.findIndex(p => p.isHost);
+    console.log('Current host index:', currentHostIndex);
+    
+    if (currentHostIndex === -1) {
+      console.error('No host found! Defaulting to first player');
+      room.currentHostIndex = 0;
+    } else {
+      // Set next host (rotate through all players)
+      room.currentHostIndex = (currentHostIndex + 1) % room.players.length;
+    }
+    
+    console.log('New host index:', room.currentHostIndex);
+    
+    // Update isHost flags
+    room.players.forEach((p, idx) => {
+      p.isHost = idx === room.currentHostIndex;
+    });
+
+    // Reset game state for new round
+    room.gameState = 'waiting';
+    room.currentVideo = null;
+    room.videoState = 'paused';
+    room.guesses = [];
+
+    // Update activity
+    updateRoomActivity(roomCode);
+
+    const newHost = room.players[room.currentHostIndex];
+    console.log('New host is:', newHost.nickname);
+    console.log('Updated players:', room.players.map(p => ({ nickname: p.nickname, isHost: p.isHost })));
+
+    // Notify all players about host rotation and reset
+    io.to(roomCode).emit('host-rotated', {
+      players: room.players,
+      newHostId: newHost.id,
+      newHostNickname: newHost.nickname,
+      gameState: room.gameState,
+      scores: getScoresByNickname(room)
+    });
+    
+    console.log('Host rotation complete');
+  } catch (error) {
+    console.error('Error during host rotation:', error);
+  }
+}
+
 // Remove player from room after grace period
 function schedulePlayerRemoval(roomCode, socketId, nickname) {
   const timerKey = `${roomCode}:${socketId}`;
@@ -445,6 +504,9 @@ io.on('connection', (socket) => {
     // Update activity
     updateRoomActivity(roomCode);
 
+    // Check if all guesses have been reviewed
+    const allGuessesReviewed = room.guesses.length > 0 && room.guesses.every(g => g.isCorrect !== null);
+    
     // Notify all players of the guess result
     io.to(roomCode).emit('guess-marked', {
       playerId: playerId,
@@ -452,8 +514,22 @@ io.on('connection', (socket) => {
       guesses: room.guesses,
       scores: getScoresByNickname(room),
       streak: isCorrect ? streak : 0,
-      streakPlayer: guess.nickname
+      streakPlayer: guess.nickname,
+      autoAdvance: allGuessesReviewed
     });
+
+    // If all guesses reviewed, auto-advance after 3 seconds
+    if (allGuessesReviewed) {
+      console.log('All guesses reviewed, auto-advancing to next round in 3 seconds');
+      setTimeout(() => {
+        // Check if room still exists and game state hasn't changed
+        const currentRoom = rooms.get(roomCode);
+        if (!currentRoom || currentRoom.gameState !== 'playing') return;
+        
+        console.log('Auto-advancing to next round');
+        rotateHost(roomCode);
+      }, 3000);
+    }
   });
 
   // Host clears current video
@@ -486,9 +562,9 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Host ends round and rotates to next host
+  // Host ends round and rotates to next host (manual)
   socket.on('host-next-round', ({ roomCode }) => {
-    console.log('Received host-next-round:', { roomCode, socketId: socket.id });
+    console.log('Received host-next-round (manual):', { roomCode, socketId: socket.id });
     const room = rooms.get(roomCode);
     if (!room) {
       socket.emit('error', { message: 'Room not found' });
@@ -501,55 +577,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    console.log('Rotating host...');
-    console.log('Current players:', room.players.map(p => ({ nickname: p.nickname, isHost: p.isHost })));
-    
-    try {
-      // Find current host index
-      const currentHostIndex = room.players.findIndex(p => p.isHost);
-      console.log('Current host index:', currentHostIndex);
-      
-      if (currentHostIndex === -1) {
-        console.error('No host found! Defaulting to first player');
-        room.currentHostIndex = 0;
-      } else {
-        // Set next host (rotate through all players)
-        room.currentHostIndex = (currentHostIndex + 1) % room.players.length;
-      }
-      
-      console.log('New host index:', room.currentHostIndex);
-      
-      // Update isHost flags
-      room.players.forEach((p, idx) => {
-        p.isHost = idx === room.currentHostIndex;
-      });
-
-      // Reset game state for new round
-      room.gameState = 'waiting';
-      room.currentVideo = null;
-      room.videoState = 'paused';
-      room.guesses = [];
-
-      // Update activity
-      updateRoomActivity(roomCode);
-
-      const newHost = room.players[room.currentHostIndex];
-      console.log('New host is:', newHost.nickname);
-      console.log('Updated players:', room.players.map(p => ({ nickname: p.nickname, isHost: p.isHost })));
-
-      // Notify all players about host rotation and reset
-      io.to(roomCode).emit('host-rotated', {
-        players: room.players,
-        newHostId: newHost.id,
-        newHostNickname: newHost.nickname,
-        gameState: room.gameState,
-        scores: getScoresByNickname(room)
-      });
-      
-      console.log('Host rotation complete');
-    } catch (error) {
-      console.error('Error during host rotation:', error);
-    }
+    rotateHost(roomCode);
   });
 
   // User responds to inactivity warning

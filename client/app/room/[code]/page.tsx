@@ -165,12 +165,12 @@ export default function RoomPage() {
     console.log('==================');
     
     const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Try polling first (faster on Render free tier)
       reconnection: true,
       reconnectionAttempts: Infinity, // Keep trying to reconnect
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000
+      timeout: 10000 // Reduced to 10 seconds
     });
     setSocket(newSocket);
 
@@ -314,6 +314,13 @@ export default function RoomPage() {
             setTimeout(() => setStreakAnnouncement(''), 3000);
           }
         }
+      }
+
+      // Check if all guesses have been reviewed
+      if (data.autoAdvance) {
+        // Show notification
+        setNotification('All guesses reviewed! Moving to next round...');
+        setTimeout(() => setNotification(''), 3000);
       }
     });
 
@@ -739,42 +746,41 @@ export default function RoomPage() {
                   ))}
                 </div>
                 
-                {/* Next Round Button - Show when at least one guess has been reviewed */}
-                {guesses.some(g => g.isCorrect !== null) && (
+                {/* Auto-advance message - Show when all guesses reviewed */}
+                {guesses.length > 0 && guesses.every(g => g.isCorrect !== null) && (
                   <div className="pt-4 border-t border-gray-700">
-                    <button
-                      onClick={handleNextRound}
-                      className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg transition-all shadow-lg"
-                    >
-                      Next Round →
-                    </button>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      Ready to move on? Click to pass host to the next player
-                    </p>
+                    <div className="text-center py-3 bg-blue-900 rounded-lg">
+                      <p className="text-blue-300 font-semibold">Moving to next round...</p>
+                      <p className="text-xs text-gray-400 mt-1">Host will rotate in a moment</p>
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Host Controls - Pass Host & Waiting */}
+            {/* Host Controls - Skip Round Option */}
             {isHost && gameState === 'playing' && (
               <div className="bg-gray-800 rounded-lg p-4">
                 {guesses.length === 0 ? (
                   <p className="text-gray-400 text-center mb-4">Waiting for players to submit guesses...</p>
-                ) : !guesses.some(g => g.isCorrect !== null) ? (
+                ) : !guesses.every(g => g.isCorrect !== null) ? (
                   <p className="text-gray-400 text-center mb-4">Review guesses above</p>
                 ) : null}
                 
-                {/* Pass Host button - always available */}
-                <button
-                  onClick={handleNextRound}
-                  className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-all"
-                >
-                  Pass Host to Next Player
-                </button>
-                <p className="text-xs text-gray-400 mt-2 text-center">
-                  Skip this round and let the next player choose
-                </p>
+                {/* Skip button - for when host wants to skip without reviewing */}
+                {!guesses.every(g => g.isCorrect !== null) && (
+                  <>
+                    <button
+                      onClick={handleNextRound}
+                      className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-all"
+                    >
+                      Skip & Pass Host
+                    </button>
+                    <p className="text-xs text-gray-400 mt-2 text-center">
+                      Don't want to review? Skip to next player
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
