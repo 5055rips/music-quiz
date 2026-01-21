@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
+import { getSoundManager, getStreakSound, getStreakText } from '@/utils/soundManager';
 
 interface Player {
   id: string;
@@ -36,6 +37,10 @@ export default function RoomPage() {
   const [videoUrl, setVideoUrl] = useState('');
   const [notification, setNotification] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+  const [inactivityWarning, setInactivityWarning] = useState(false);
+  const [minutesUntilClose, setMinutesUntilClose] = useState(30);
+  const [streakAnnouncement, setStreakAnnouncement] = useState('');
+  const [soundsMuted, setSoundsMuted] = useState(false);
 
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -47,6 +52,12 @@ export default function RoomPage() {
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
+
+  // Initialize sound manager
+  useEffect(() => {
+    const soundManager = getSoundManager();
+    setSoundsMuted(soundManager.isMuted());
+  }, []);
 
   // Load YouTube IFrame API once on mount
   useEffect(() => {
@@ -218,6 +229,49 @@ export default function RoomPage() {
     newSocket.on('guess-marked', (data) => {
       setGuesses(data.guesses);
       setScores(data.scores);
+      
+      // Play sound and show streak announcement
+      if (data.isCorrect && data.streak) {
+        const soundManager = getSoundManager();
+        
+        // Play correct sound
+        soundManager.play('correct');
+        
+        // Play streak sound if applicable
+        const streakSound = getStreakSound(data.streak);
+        if (streakSound) {
+          setTimeout(() => {
+            soundManager.play(streakSound);
+          }, 300); // Slight delay after correct sound
+          
+          // Show streak announcement
+          const streakText = getStreakText(data.streak);
+          if (streakText) {
+            setStreakAnnouncement(`${data.streakPlayer}: ${streakText}`);
+            setTimeout(() => setStreakAnnouncement(''), 3000);
+          }
+        }
+      } else if (data.isCorrect === false) {
+        // Play wrong sound
+        const soundManager = getSoundManager();
+        soundManager.play('wrong');
+      }
+    });
+
+    newSocket.on('video-cleared', (data) => {
+      console.log('Video cleared');
+      setGameState(data.gameState);
+      setCurrentVideo(null);
+      setVideoState('paused');
+      setGuesses([]);
+      setMyGuess('');
+      setPlayerReady(false);
+    });
+
+    newSocket.on('player-left', (data) => {
+      console.log('Player left:', data);
+      setPlayers(data.players);
+      setScores(data.scores);
     });
 
     newSocket.on('host-rotated', (data) => {
@@ -249,8 +303,27 @@ export default function RoomPage() {
       setTimeout(() => setNotification(''), 5000);
     });
 
+    newSocket.on('inactivity-warning', (data) => {
+      console.log('Inactivity warning received:', data);
+      setInactivityWarning(true);
+      setMinutesUntilClose(data.minutesUntilClose);
+    });
+
+    newSocket.on('room-closed', (data) => {
+      console.log('Room closed:', data);
+      alert(data.message);
+      window.location.href = '/';
+    });
+
     newSocket.on('error', (data) => {
       console.error('Socket error:', data);
+      if (data.message === 'Room is full') {
+        alert('This room is full (max 20 players)');
+        window.location.href = '/';
+      } else if (data.message === 'Nickname already taken in this room') {
+        alert('This nickname is already taken in this room');
+        window.location.href = '/';
+      }
     });
 
     return () => {
@@ -297,7 +370,25 @@ export default function RoomPage() {
     socket.emit('host-next-round', { roomCode });
   };
 
-  const sortedPlayers = [...players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
+  const handleClearVideo = () => {
+    if (!socket) return;
+    socket.emit('host-clear-video', { roomCode });
+  };
+
+  const handleStillHere = () => {
+    if (!socket) return;
+    socket.emit('still-here', { roomCode });
+    setInactivityWarning(false);
+  };
+
+  const toggleSounds = () => {
+    const soundManager = getSoundManager();
+    const newMuted = !soundsMuted;
+    soundManager.setMuted(newMuted);
+    setSoundsMuted(newMuted);
+  };
+
+  const sortedPlayers = [...players].sort((a, b) => (scores[b.nickname] || 0) - (scores[a.nickname] || 0));
   const myGuessData = guesses.find(g => g.nickname === nickname);
 
   return (
@@ -311,8 +402,17 @@ export default function RoomPage() {
           >
             <span className="text-xl">←</span> Back to Home
           </a>
-          <div className="text-sm text-gray-400">
-            {socket?.connected ? '🟢 Connected' : '🟡 Connecting...'}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleSounds}
+              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition-colors"
+              title={soundsMuted ? 'Unmute sounds' : 'Mute sounds'}
+            >
+              {soundsMuted ? 'Sounds: OFF' : 'Sounds: ON'}
+            </button>
+            <div className="text-sm text-gray-400">
+              {socket?.connected ? 'Connected' : 'Connecting...'}
+            </div>
           </div>
         </div>
 
@@ -320,6 +420,38 @@ export default function RoomPage() {
         {notification && (
           <div className="mb-4 bg-green-600 text-white px-6 py-4 rounded-lg font-semibold text-center animate-pulse">
             {notification}
+          </div>
+        )}
+
+        {/* Streak Announcement */}
+        {streakAnnouncement && (
+          <div className="fixed top-1/4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+            <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-8 py-6 rounded-lg shadow-2xl border-4 border-yellow-400 animate-pulse">
+              <p className="text-4xl font-black text-center tracking-wider drop-shadow-lg">
+                {streakAnnouncement}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Inactivity Warning Modal */}
+        {inactivityWarning && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border-2 border-yellow-500">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-yellow-400 mb-4">Are You Still There?</h2>
+                <p className="text-gray-300 mb-2">This room has been inactive for 30 minutes.</p>
+                <p className="text-gray-400 text-sm mb-6">
+                  The room will close in {minutesUntilClose} minutes if no activity is detected.
+                </p>
+                <button
+                  onClick={handleStillHere}
+                  className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold text-lg transition-all"
+                >
+                  Yes, I'm Still Here
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -336,8 +468,18 @@ export default function RoomPage() {
             {/* Video Player - Only visible to host */}
             {currentVideo && isHost && (
               <div className="bg-gray-800 rounded-lg p-4">
-                <h2 className="text-xl font-semibold mb-4">Video Player (Host Only)</h2>
-                <p className="text-sm text-gray-400 mb-3">Use the video controls below to play/pause. All participants will hear the audio.</p>
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold">Video Player (Host Only)</h2>
+                    <p className="text-sm text-gray-400 mt-1">Use the video controls below to play/pause. All participants will hear the audio.</p>
+                  </div>
+                  <button
+                    onClick={handleClearVideo}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-sm whitespace-nowrap"
+                  >
+                    Clear Video
+                  </button>
+                </div>
                 <div className="aspect-video bg-black rounded-lg overflow-hidden">
                   {/* Player renders here for host */}
                   <div id="youtube-player"></div>
@@ -350,7 +492,6 @@ export default function RoomPage() {
               <div className="bg-gray-800 rounded-lg p-6">
                 <div className="aspect-video bg-gradient-to-br from-purple-900 to-gray-900 rounded-lg flex items-center justify-center mb-4">
                   <div className="text-center">
-                    <div className="text-6xl mb-4">🎵</div>
                     <h3 className="text-2xl font-bold text-purple-300">Listen to the Song</h3>
                     <p className="text-gray-400 mt-2">
                       {videoState === 'playing' ? 'Song is playing...' : 'Waiting for host to play...'}
@@ -432,8 +573,6 @@ export default function RoomPage() {
                         >
                           <span className="font-medium">{guess.nickname}:</span>{' '}
                           <span>{guess.guess}</span>
-                          {guess.isCorrect === true && <span className="ml-2 text-green-300">✓</span>}
-                          {guess.isCorrect === false && <span className="ml-2 text-red-300">✗</span>}
                         </div>
                       ))}
                     </div>
@@ -478,8 +617,6 @@ export default function RoomPage() {
                         >
                           <span className="font-medium">{guess.nickname}:</span>{' '}
                           <span>{guess.guess}</span>
-                          {guess.isCorrect === true && <span className="ml-2 text-green-300">✓</span>}
-                          {guess.isCorrect === false && <span className="ml-2 text-red-300">✗</span>}
                         </div>
                       ))}
                     </div>
@@ -552,10 +689,25 @@ export default function RoomPage() {
               </div>
             )}
 
-            {/* Waiting for guesses */}
-            {isHost && gameState === 'playing' && guesses.length === 0 && (
-              <div className="bg-gray-800 rounded-lg p-4 text-center">
-                <p className="text-gray-400">Waiting for players to submit guesses...</p>
+            {/* Host Controls - Pass Host & Waiting */}
+            {isHost && gameState === 'playing' && (
+              <div className="bg-gray-800 rounded-lg p-4">
+                {guesses.length === 0 ? (
+                  <p className="text-gray-400 text-center mb-4">Waiting for players to submit guesses...</p>
+                ) : !guesses.some(g => g.isCorrect !== null) ? (
+                  <p className="text-gray-400 text-center mb-4">Review guesses above</p>
+                ) : null}
+                
+                {/* Pass Host button - always available */}
+                <button
+                  onClick={handleNextRound}
+                  className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-lg font-semibold transition-all"
+                >
+                  Pass Host to Next Player
+                </button>
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Skip this round and let the next player choose
+                </p>
               </div>
             )}
           </div>
@@ -570,15 +722,9 @@ export default function RoomPage() {
                 className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
               >
                 {copySuccess ? (
-                  <>
-                    <span>✓</span>
-                    <span>Link Copied!</span>
-                  </>
+                  <span>Link Copied!</span>
                 ) : (
-                  <>
-                    <span>🔗</span>
-                    <span>Copy Invite Link</span>
-                  </>
+                  <span>Copy Invite Link</span>
                 )}
               </button>
               <p className="text-xs text-gray-400 mt-2 text-center">
@@ -603,7 +749,7 @@ export default function RoomPage() {
                         {player.isHost && ' (Host)'}
                       </span>
                       <span className="text-yellow-400 font-semibold">
-                        {scores[player.id] || 0}
+                        {scores[player.nickname] || 0}
                       </span>
                     </div>
                   </div>
