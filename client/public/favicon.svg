@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Blue circle background -->
+  <circle cx="50" cy="50" r="50" fill="#3B82F6"/>
+  
+  <!-- White music note -->
+  <g fill="#FFFFFF">
+    <!-- Note stem -->
+    <rect x="58" y="25" width="4" height="45" rx="2"/>
+    
+    <!-- Note flag -->
+    <path d="M 62 25 Q 75 28 75 38 Q 75 32 62 30 Z"/>
+    
+    <!-- Note head (bottom ellipse) -->
+    <ellipse cx="55" cy="70" rx="8" ry="6" transform="rotate(-20 55 70)"/>
+    
+    <!-- Second note head -->
+    <ellipse cx="38" cy="62" rx="8" ry="6" transform="rotate(-20 38 62)"/>
+    
+    <!-- Second note stem -->
+    <rect x="41" y="35" width="4" height="30" rx="2"/>
+    
+    <!-- Connection line -->
+    <rect x="41" y="35" width="21" height="3" rx="1.5"/>
+  </g>
+</svg>
