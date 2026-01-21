@@ -41,6 +41,7 @@ export default function RoomPage() {
   const [minutesUntilClose, setMinutesUntilClose] = useState(30);
   const [streakAnnouncement, setStreakAnnouncement] = useState('');
   const [soundsMuted, setSoundsMuted] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'reconnecting' | 'disconnected'>('connecting');
 
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -83,19 +84,14 @@ export default function RoomPage() {
     };
   }, []);
 
-  // Initialize player when API is ready and we have a video
+  // Initialize player ONCE when API is ready
   useEffect(() => {
-    if (!apiReady || !currentVideo) return;
+    if (!apiReady) return;
 
-    // Destroy existing player if any
-    if (ytPlayerRef.current && ytPlayerRef.current.destroy) {
-      ytPlayerRef.current.destroy();
-    }
-
-    console.log('Creating YouTube player for video:', currentVideo.id);
+    console.log('Initializing YouTube player (one-time)');
 
     ytPlayerRef.current = new (window as any).YT.Player('youtube-player', {
-      videoId: currentVideo.id,
+      videoId: '', // Empty initially
       playerVars: {
         autoplay: 0,
         controls: 1,
@@ -120,7 +116,7 @@ export default function RoomPage() {
           console.log('Player state changed:', event.data, '=', stateNames[event.data] || 'unknown');
           
           // If host plays/pauses directly on the embed, sync it to everyone
-          if (isHost && socket) {
+          if (isHostRef.current && socket) {
             if (event.data === YT.PlayerState.PLAYING) {
               console.log('Host started playing, syncing to all...');
               socket.emit('host-control-video', { roomCode, action: 'play' });
@@ -132,27 +128,99 @@ export default function RoomPage() {
         }
       }
     });
-  }, [apiReady, currentVideo, isHost, socket, roomCode]);
+
+    return () => {
+      // Only destroy on unmount
+      if (ytPlayerRef.current && ytPlayerRef.current.destroy) {
+        console.log('Destroying YouTube player');
+        ytPlayerRef.current.destroy();
+      }
+    };
+  }, [apiReady, socket, roomCode]);
+
+  // Load new video into existing player
+  useEffect(() => {
+    if (!currentVideo || !ytPlayerRef.current || !playerReady) return;
+
+    console.log('Loading new video into player:', currentVideo.id);
+    
+    try {
+      ytPlayerRef.current.loadVideoById({
+        videoId: currentVideo.id,
+        startSeconds: 0
+      });
+    } catch (error) {
+      console.error('Error loading video:', error);
+    }
+  }, [currentVideo, playerReady]);
 
   useEffect(() => {
     if (!roomCode || !nickname) return;
 
     const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+    console.log('=== SOCKET DEBUG ===');
+    console.log('Server URL:', serverUrl);
+    console.log('Room Code:', roomCode);
+    console.log('Nickname:', nickname);
+    console.log('==================');
+    
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
+      reconnectionAttempts: Infinity, // Keep trying to reconnect
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000
     });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('Socket connected, joining room...');
+      setConnectionStatus('connecting');
       newSocket.emit('join-room', { roomCode, nickname });
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log('Socket reconnected after', attemptNumber, 'attempts');
+      setConnectionStatus('connecting');
+      newSocket.emit('join-room', { roomCode, nickname });
+    });
+
+    newSocket.on('reconnect_attempt', () => {
+      console.log('Attempting to reconnect...');
+      setConnectionStatus('reconnecting');
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason);
+      setConnectionStatus('disconnected');
+      if (reason === 'io server disconnect') {
+        // Server disconnected us, need to manually reconnect
+        newSocket.connect();
+      }
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('=== CONNECTION ERROR ===');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error type:', error.type);
+      console.error('Server URL:', serverUrl);
+      console.error('=======================');
+      setConnectionStatus('reconnecting');
+    });
+
+    newSocket.on('connect_timeout', () => {
+      console.error('=== CONNECTION TIMEOUT ===');
+      console.error('Failed to connect within timeout period');
+      console.error('Server URL:', serverUrl);
+      console.error('========================');
+      setConnectionStatus('reconnecting');
     });
 
     newSocket.on('room-joined', (data) => {
       console.log('Room joined:', data);
+      setConnectionStatus('connected');
       setPlayers(data.players);
       setIsHost(data.isHost);
       setGameState(data.gameState);
@@ -401,8 +469,16 @@ export default function RoomPage() {
             >
               {soundsMuted ? 'Sounds: OFF' : 'Sounds: ON'}
             </button>
-            <div className="text-sm text-gray-400">
-              {socket?.connected ? 'Connected' : 'Connecting...'}
+            <div className={`text-sm font-medium ${
+              connectionStatus === 'connected' ? 'text-green-400' : 
+              connectionStatus === 'reconnecting' ? 'text-yellow-400' : 
+              connectionStatus === 'disconnected' ? 'text-red-400' : 
+              'text-gray-400'
+            }`}>
+              {connectionStatus === 'connected' && '● Connected'}
+              {connectionStatus === 'connecting' && '○ Connecting...'}
+              {connectionStatus === 'reconnecting' && '◐ Reconnecting...'}
+              {connectionStatus === 'disconnected' && '○ Disconnected'}
             </div>
           </div>
         </div>

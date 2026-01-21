@@ -11,7 +11,11 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000, // 60 seconds before considering connection dead
+  pingInterval: 25000, // Send ping every 25 seconds
+  upgradeTimeout: 30000,
+  maxHttpBufferSize: 1e6
 });
 
 app.use(cors({
