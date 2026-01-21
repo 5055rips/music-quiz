@@ -230,19 +230,14 @@ export default function RoomPage() {
       setGuesses(data.guesses);
       setScores(data.scores);
       
-      // Play sound and show streak announcement
-      if (data.isCorrect && data.streak) {
+      // Only play sound and show announcement for streaks (2+)
+      if (data.isCorrect && data.streak >= 2) {
         const soundManager = getSoundManager();
         
-        // Play correct sound
-        soundManager.play('correct');
-        
-        // Play streak sound if applicable
+        // Play streak sound
         const streakSound = getStreakSound(data.streak);
         if (streakSound) {
-          setTimeout(() => {
-            soundManager.play(streakSound);
-          }, 300); // Slight delay after correct sound
+          soundManager.play(streakSound);
           
           // Show streak announcement
           const streakText = getStreakText(data.streak);
@@ -251,10 +246,6 @@ export default function RoomPage() {
             setTimeout(() => setStreakAnnouncement(''), 3000);
           }
         }
-      } else if (data.isCorrect === false) {
-        // Play wrong sound
-        const soundManager = getSoundManager();
-        soundManager.play('wrong');
       }
     });
 
@@ -398,7 +389,7 @@ export default function RoomPage() {
         <div className="mb-4 flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
           <a 
             href="/"
-            className="text-purple-400 hover:text-purple-300 font-semibold flex items-center gap-2 transition-colors"
+            className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-2 transition-colors"
           >
             <span className="text-xl">←</span> Back to Home
           </a>
@@ -418,7 +409,7 @@ export default function RoomPage() {
 
         {/* Notification Banner */}
         {notification && (
-          <div className="mb-4 bg-green-600 text-white px-6 py-4 rounded-lg font-semibold text-center animate-pulse">
+          <div className="mb-4 bg-blue-600 text-white px-6 py-4 rounded-lg font-semibold text-center animate-pulse">
             {notification}
           </div>
         )}
@@ -426,7 +417,7 @@ export default function RoomPage() {
         {/* Streak Announcement */}
         {streakAnnouncement && (
           <div className="fixed top-1/4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-            <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-8 py-6 rounded-lg shadow-2xl border-4 border-yellow-400 animate-pulse">
+            <div className="bg-gray-900 text-white px-8 py-6 rounded-lg shadow-2xl border-4 border-blue-500 animate-pulse">
               <p className="text-4xl font-black text-center tracking-wider drop-shadow-lg">
                 {streakAnnouncement}
               </p>
@@ -437,16 +428,16 @@ export default function RoomPage() {
         {/* Inactivity Warning Modal */}
         {inactivityWarning && (
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border-2 border-yellow-500">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border-2 border-blue-500">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-yellow-400 mb-4">Are You Still There?</h2>
+                <h2 className="text-2xl font-bold text-white mb-4">Are You Still There?</h2>
                 <p className="text-gray-300 mb-2">This room has been inactive for 30 minutes.</p>
                 <p className="text-gray-400 text-sm mb-6">
                   The room will close in {minutesUntilClose} minutes if no activity is detected.
                 </p>
                 <button
                   onClick={handleStillHere}
-                  className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold text-lg transition-all"
+                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg transition-all"
                 >
                   Yes, I'm Still Here
                 </button>
@@ -456,9 +447,9 @@ export default function RoomPage() {
         )}
 
         <div className="mb-4">
-          <h1 className="text-3xl font-bold text-purple-400 mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2">
             Room: <span className="font-mono">{roomCode}</span>
-            {isHost && <span className="ml-3 text-lg text-yellow-400">(You are the host)</span>}
+            {isHost && <span className="ml-3 text-lg text-blue-400">(You are the host)</span>}
           </h1>
         </div>
 
@@ -475,7 +466,7 @@ export default function RoomPage() {
                   </div>
                   <button
                     onClick={handleClearVideo}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-sm whitespace-nowrap"
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold text-sm whitespace-nowrap"
                   >
                     Clear Video
                   </button>
@@ -490,9 +481,9 @@ export default function RoomPage() {
             {/* Audio Only View - For non-host players */}
             {currentVideo && !isHost && (
               <div className="bg-gray-800 rounded-lg p-6">
-                <div className="aspect-video bg-gradient-to-br from-purple-900 to-gray-900 rounded-lg flex items-center justify-center mb-4">
+                <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
                   <div className="text-center">
-                    <h3 className="text-2xl font-bold text-purple-300">Listen to the Song</h3>
+                    <h3 className="text-2xl font-bold text-white">Listen to the Song</h3>
                     <p className="text-gray-400 mt-2">
                       {videoState === 'playing' ? 'Song is playing...' : 'Waiting for host to play...'}
                     </p>
@@ -522,7 +513,7 @@ export default function RoomPage() {
                       />
                       <button
                         onClick={handleSubmitVideo}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold"
                       >
                         Load Video
                       </button>
@@ -534,22 +525,22 @@ export default function RoomPage() {
 
             {/* Player: Submit Guess */}
             {!isHost && gameState === 'playing' && !myGuessData && (
-              <div className="bg-gray-800 rounded-lg p-4 border-2 border-purple-500">
-                <h2 className="text-xl font-bold mb-4 text-purple-400">Your Guess</h2>
+              <div className="bg-gray-800 rounded-lg p-4 border-2 border-blue-500">
+                <h2 className="text-xl font-bold mb-4 text-white">Your Guess</h2>
                 <div className="flex gap-2 mb-4">
                   <input
                     type="text"
                     value={myGuess}
                     onChange={(e) => setMyGuess(e.target.value)}
                     placeholder="Type the name of the artist and the song title"
-                    className="flex-1 px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-lg"
+                    className="flex-1 px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
                     onKeyPress={(e) => e.key === 'Enter' && myGuess.trim() && handleSubmitGuess()}
                     autoFocus
                   />
                   <button
                     onClick={handleSubmitGuess}
                     disabled={!myGuess.trim()}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold"
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold"
                   >
                     Submit
                   </button>
@@ -565,9 +556,9 @@ export default function RoomPage() {
                           key={guess.playerId}
                           className={`p-2 rounded text-sm ${
                             guess.isCorrect === true
-                              ? 'bg-green-900 text-green-200'
+                              ? 'bg-blue-900 text-blue-200 border border-blue-500'
                               : guess.isCorrect === false
-                              ? 'bg-red-900 text-red-200'
+                              ? 'bg-gray-700 text-gray-400'
                               : 'bg-gray-700 text-gray-300'
                           }`}
                         >
@@ -583,7 +574,7 @@ export default function RoomPage() {
 
             {/* Player: Guess Submitted */}
             {!isHost && gameState === 'playing' && myGuessData && (
-              <div className="bg-gray-800 rounded-lg p-4 border-2 border-purple-500">
+              <div className="bg-gray-800 rounded-lg p-4 border-2 border-blue-500">
                 <div className="mb-4">
                   <p className="text-lg">
                     Your guess: <span className="font-bold">{myGuessData.guess}</span>
@@ -592,10 +583,10 @@ export default function RoomPage() {
                     <p className="text-gray-400 text-sm mt-2">Waiting for host to review...</p>
                   )}
                   {myGuessData.isCorrect === true && (
-                    <p className="text-green-400 font-bold mt-2">Correct! +100 points</p>
+                    <p className="text-blue-400 font-bold mt-2">Correct! +100 points</p>
                   )}
                   {myGuessData.isCorrect === false && (
-                    <p className="text-red-400 font-bold mt-2">Incorrect</p>
+                    <p className="text-gray-400 font-bold mt-2">Incorrect</p>
                   )}
                 </div>
                 
@@ -609,9 +600,9 @@ export default function RoomPage() {
                           key={guess.playerId}
                           className={`p-2 rounded text-sm ${
                             guess.isCorrect === true
-                              ? 'bg-green-900 text-green-200'
+                              ? 'bg-blue-900 text-blue-200 border border-blue-500'
                               : guess.isCorrect === false
-                              ? 'bg-red-900 text-red-200'
+                              ? 'bg-gray-700 text-gray-400'
                               : 'bg-gray-700 text-gray-300'
                           }`}
                         >
@@ -635,9 +626,9 @@ export default function RoomPage() {
                       key={guess.playerId}
                       className={`p-3 rounded-lg ${
                         guess.isCorrect === true
-                          ? 'bg-green-900 border-2 border-green-500'
+                          ? 'bg-blue-900 border-2 border-blue-500'
                           : guess.isCorrect === false
-                          ? 'bg-red-900 border-2 border-red-500'
+                          ? 'bg-gray-700 border-2 border-gray-600'
                           : 'bg-gray-700'
                       }`}
                     >
@@ -650,20 +641,20 @@ export default function RoomPage() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleMarkGuess(guess.playerId, true)}
-                              className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold"
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold"
                             >
                               Correct
                             </button>
                             <button
                               onClick={() => handleMarkGuess(guess.playerId, false)}
-                              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold"
+                              className="px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm font-semibold"
                             >
                               Wrong
                             </button>
                           </div>
                         )}
                         {guess.isCorrect !== null && (
-                          <span className={guess.isCorrect ? 'text-green-400' : 'text-red-400'}>
+                          <span className={guess.isCorrect ? 'text-blue-400' : 'text-gray-400'}>
                             {guess.isCorrect ? 'Correct' : 'Wrong'}
                           </span>
                         )}
@@ -677,7 +668,7 @@ export default function RoomPage() {
                   <div className="pt-4 border-t border-gray-700">
                     <button
                       onClick={handleNextRound}
-                      className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-lg font-bold text-lg transition-all shadow-lg"
+                      className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg transition-all shadow-lg"
                     >
                       Next Round →
                     </button>
@@ -701,7 +692,7 @@ export default function RoomPage() {
                 {/* Pass Host button - always available */}
                 <button
                   onClick={handleNextRound}
-                  className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-lg font-semibold transition-all"
+                  className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-all"
                 >
                   Pass Host to Next Player
                 </button>
@@ -740,7 +731,7 @@ export default function RoomPage() {
                   <div
                     key={player.id}
                     className={`p-2 rounded ${
-                      player.isHost ? 'bg-purple-900 border border-purple-500' : 'bg-gray-700'
+                      player.isHost ? 'bg-blue-900 border border-blue-500' : 'bg-gray-700'
                     }`}
                   >
                     <div className="flex justify-between items-center">
@@ -748,7 +739,7 @@ export default function RoomPage() {
                         {player.nickname}
                         {player.isHost && ' (Host)'}
                       </span>
-                      <span className="text-yellow-400 font-semibold">
+                      <span className="text-blue-400 font-semibold">
                         {scores[player.nickname] || 0}
                       </span>
                     </div>

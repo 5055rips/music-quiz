@@ -1,8 +1,6 @@
 // Sound Manager for Quake-style announcer sounds
 
 export type SoundType = 
-  | 'correct'
-  | 'wrong'
   | 'firstblood'
   | 'multikill'
   | 'wickedsick'
@@ -23,9 +21,7 @@ class SoundManager {
   private volume: number = 0.6;
 
   constructor() {
-    // Initialize sounds - Using actual Quake sounds!
-    this.loadSound('correct', '/sounds/headshot.mp3');
-    this.loadSound('wrong', '/sounds/humiliation.mp3');
+    // Initialize sounds - Using actual Quake sounds! (Streak sounds only, 2+)
     this.loadSound('firstblood', '/sounds/firstblood.mp3');
     this.loadSound('multikill', '/sounds/multikill.mp3');
     this.loadSound('wickedsick', '/sounds/wickedsick.mp3');

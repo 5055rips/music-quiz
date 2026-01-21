@@ -62,9 +62,9 @@ export default function Home() {
   // Normal home screen
   return (
     <>
-      <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-        <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border border-purple-500">
-          <h1 className="text-5xl font-bold text-center mb-3 text-purple-400">
+      <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border border-blue-500">
+          <h1 className="text-5xl font-bold text-center mb-3 text-white">
             Music Quiz
           </h1>
           <p className="text-center text-gray-400 mb-8">Guess the song, win the game!</p>
@@ -73,7 +73,7 @@ export default function Home() {
             {/* Create Room Button */}
             <button
               onClick={handleCreateRoomClick}
-              className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-lg font-bold text-lg transition-all shadow-lg"
+              className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg transition-all shadow-lg"
             >
               Create New Room
             </button>
@@ -103,7 +103,7 @@ export default function Home() {
               <button
                 onClick={handleJoinRoomClick}
                 disabled={!roomCode.trim()}
-                className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all shadow-lg"
+                className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all shadow-lg"
               >
                 Join Room
               </button>
@@ -115,19 +115,19 @@ export default function Home() {
       {/* Nickname Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border-2 border-purple-500 animate-scale-in">
+          <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border-2 border-blue-500 animate-scale-in">
             <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold text-purple-400 mb-2">
+              <h2 className="text-3xl font-bold text-white mb-2">
                 {modalAction === 'create' ? 'Create Room' : inviteRoomCode ? "You're Invited!" : 'Join Room'}
               </h2>
               {inviteRoomCode && (
                 <p className="text-gray-300 text-lg">
-                  Room: <span className="font-mono font-bold text-blue-300">{inviteRoomCode}</span>
+                  Room: <span className="font-mono font-bold text-blue-400">{inviteRoomCode}</span>
                 </p>
               )}
               {modalAction === 'join' && !inviteRoomCode && (
                 <p className="text-gray-300 text-lg">
-                  Room: <span className="font-mono font-bold text-blue-300">{roomCode}</span>
+                  Room: <span className="font-mono font-bold text-blue-400">{roomCode}</span>
                 </p>
               )}
             </div>
@@ -157,7 +157,7 @@ export default function Home() {
                 <button
                   onClick={handleModalSubmit}
                   disabled={!nickname.trim()}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-semibold transition-all"
+                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-all"
                 >
                   {modalAction === 'create' ? 'Create' : 'Join'}
                 </button>
