@@ -200,7 +200,7 @@ export default function RoomPage() {
       }
     });
 
-    newSocket.on('connect_error', (error) => {
+    newSocket.on('connect_error', (error: any) => {
       console.error('=== CONNECTION ERROR ===');
       console.error('Error:', error);
       console.error('Error message:', error.message);
