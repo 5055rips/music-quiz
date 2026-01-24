@@ -187,10 +187,11 @@ export default function RoomPage() {
     console.log('Loading new video into player:', currentVideo.id);
     
     try {
-      ytPlayerRef.current.loadVideoById({
+      ytPlayerRef.current.cueVideoById({
         videoId: currentVideo.id,
         startSeconds: 0
       });
+      // Use cueVideoById instead of loadVideoById to prevent autoplay
     } catch (error) {
       console.error('Error loading video:', error);
     }
@@ -520,19 +521,6 @@ export default function RoomPage() {
 
   return (
     <main className="min-h-screen p-4">
-      {/* YouTube Player - Always present for proper initialization */}
-      <div 
-        id="youtube-player-container"
-        className={currentVideo && isHost ? "max-w-6xl mx-auto mb-4" : ""}
-        style={
-          !currentVideo || !isHost
-            ? { position: 'fixed', top: '-9999px', left: '-9999px', width: '640px', height: '360px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }
-            : { width: '100%' }
-        }
-      >
-        <div id="youtube-player"></div>
-      </div>
-
       <div className="max-w-6xl mx-auto">
         {/* Navigation Header */}
         <div className="mb-4 flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
@@ -613,6 +601,17 @@ export default function RoomPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Game Area */}
           <div className="lg:col-span-2 space-y-4">
+            {/* YouTube Player - Always in DOM for initialization */}
+            <div 
+              style={
+                !currentVideo || !isHost
+                  ? { position: 'fixed', top: '-9999px', left: '-9999px', width: '640px', height: '360px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }
+                  : {}
+              }
+            >
+              <div id="youtube-player"></div>
+            </div>
+
             {/* Video Player UI - Shows when video is loaded */}
             {currentVideo && (
               <div className="bg-gray-800 rounded-lg p-4">
