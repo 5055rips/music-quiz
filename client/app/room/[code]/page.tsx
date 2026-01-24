@@ -520,6 +520,19 @@ export default function RoomPage() {
 
   return (
     <main className="min-h-screen p-4">
+      {/* YouTube Player - Always present for proper initialization */}
+      <div 
+        id="youtube-player-container"
+        className={currentVideo && isHost ? "max-w-6xl mx-auto mb-4" : ""}
+        style={
+          !currentVideo || !isHost
+            ? { position: 'fixed', top: '-9999px', left: '-9999px', width: '640px', height: '360px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }
+            : { width: '100%' }
+        }
+      >
+        <div id="youtube-player"></div>
+      </div>
+
       <div className="max-w-6xl mx-auto">
         {/* Navigation Header */}
         <div className="mb-4 flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
@@ -600,8 +613,7 @@ export default function RoomPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Game Area */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Video Player - Only visible to host */}
-            {/* Video Player - Single player element for all users */}
+            {/* Video Player UI - Shows when video is loaded */}
             {currentVideo && (
               <div className="bg-gray-800 rounded-lg p-4">
                 {isHost && (
@@ -619,26 +631,15 @@ export default function RoomPage() {
                   </div>
                 )}
                 
-                {isHost ? (
-                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    {/* Player renders here for host */}
-                    <div id="youtube-player"></div>
+                {!isHost && (
+                  <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold text-white">Listen to the Song</h3>
+                      <p className="text-gray-400 mt-2">
+                        {videoState === 'playing' ? 'Song is playing...' : 'Waiting for host to play...'}
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
-                      <div className="text-center">
-                        <h3 className="text-2xl font-bold text-white">Listen to the Song</h3>
-                        <p className="text-gray-400 mt-2">
-                          {videoState === 'playing' ? 'Song is playing...' : 'Waiting for host to play...'}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Hidden player for non-host - hidden but plays audio */}
-                    <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }}>
-                      <div id="youtube-player"></div>
-                    </div>
-                  </>
                 )}
               </div>
             )}
