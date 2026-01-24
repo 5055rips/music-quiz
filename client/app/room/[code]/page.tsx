@@ -46,6 +46,8 @@ export default function RoomPage() {
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
   const isHostRef = useRef(false);
+  const lastKnownTime = useRef<number>(0);
+  const seekCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const [apiReady, setApiReady] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
 
@@ -120,9 +122,39 @@ export default function RoomPage() {
             if (event.data === YT.PlayerState.PLAYING) {
               console.log('Host started playing, syncing to all...');
               socket.emit('host-control-video', { roomCode, action: 'play' });
+              
+              // Start monitoring for seeks when playing
+              if (!seekCheckInterval.current) {
+                seekCheckInterval.current = setInterval(() => {
+                  if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime) {
+                    const currentTime = ytPlayerRef.current.getCurrentTime();
+                    const timeDiff = Math.abs(currentTime - lastKnownTime.current);
+                    
+                    // If time jumped more than 2 seconds, it's a seek
+                    if (timeDiff > 2 && lastKnownTime.current > 0) {
+                      console.log('Host seeked to:', currentTime);
+                      socket.emit('host-seek-video', { roomCode, time: currentTime });
+                    }
+                    
+                    lastKnownTime.current = currentTime;
+                  }
+                }, 500); // Check every 500ms
+              }
             } else if (event.data === YT.PlayerState.PAUSED) {
               console.log('Host paused, syncing to all...');
               socket.emit('host-control-video', { roomCode, action: 'pause' });
+              
+              // Stop monitoring seeks when paused
+              if (seekCheckInterval.current) {
+                clearInterval(seekCheckInterval.current);
+                seekCheckInterval.current = null;
+              }
+              
+              // Also sync time position on pause (in case they scrubbed while paused)
+              if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime) {
+                const currentTime = ytPlayerRef.current.getCurrentTime();
+                socket.emit('host-seek-video', { roomCode, time: currentTime });
+              }
             }
           }
         }
@@ -290,6 +322,20 @@ export default function RoomPage() {
       }
     });
 
+    newSocket.on('video-seeked', (data) => {
+      console.log('Received video-seeked:', data, 'isHost:', isHostRef.current);
+      
+      // Only participants seek (not the host who initiated it)
+      if (!isHostRef.current && ytPlayerRef.current && ytPlayerRef.current.seekTo) {
+        try {
+          console.log('Syncing: Seeking to', data.time);
+          ytPlayerRef.current.seekTo(data.time, true);
+        } catch (error) {
+          console.error('Error seeking video:', error);
+        }
+      }
+    });
+
     newSocket.on('guess-submitted', (data) => {
       setGuesses(data.guesses);
     });
@@ -393,6 +439,11 @@ export default function RoomPage() {
     });
 
     return () => {
+      // Clean up seek monitoring
+      if (seekCheckInterval.current) {
+        clearInterval(seekCheckInterval.current);
+        seekCheckInterval.current = null;
+      }
       newSocket.disconnect();
     };
   }, [roomCode, nickname]);

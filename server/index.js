@@ -409,6 +409,32 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Host seeks video to specific time
+  socket.on('host-seek-video', ({ roomCode, time }) => {
+    console.log('Received host-seek-video:', { roomCode, time, socketId: socket.id });
+    const room = rooms.get(roomCode);
+    if (!room) {
+      console.log('Room not found:', roomCode);
+      return;
+    }
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || !player.isHost) {
+      console.log('Player not host, ignoring seek');
+      return;
+    }
+
+    // Update activity
+    updateRoomActivity(roomCode);
+    
+    console.log('Broadcasting video-seeked:', time, 'to room:', roomCode);
+    // Broadcast to all players except the sender
+    socket.to(roomCode).emit('video-seeked', {
+      time: time
+    });
+    console.log('Broadcasted seek to', room.players.length - 1, 'players');
+  });
+
   // Player submits guess
   socket.on('player-submit-guess', ({ roomCode, guess }) => {
     const room = rooms.get(roomCode);
