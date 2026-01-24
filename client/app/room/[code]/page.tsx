@@ -46,15 +46,25 @@ export default function RoomPage() {
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
   const isHostRef = useRef(false);
+  const socketRef = useRef<Socket | null>(null);
+  const roomCodeRef = useRef<string>(roomCode);
   const lastKnownTime = useRef<number>(0);
   const seekCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const [apiReady, setApiReady] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
 
-  // Keep isHostRef in sync
+  // Keep refs in sync
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
+
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+
+  useEffect(() => {
+    roomCodeRef.current = roomCode;
+  }, [roomCode]);
 
   // Initialize sound manager
   useEffect(() => {
@@ -118,22 +128,22 @@ export default function RoomPage() {
           console.log('Player state changed:', event.data, '=', stateNames[event.data] || 'unknown');
           
           // If host plays/pauses directly on the embed, sync it to everyone
-          if (isHostRef.current && socket) {
+          if (isHostRef.current && socketRef.current) {
             if (event.data === YT.PlayerState.PLAYING) {
               console.log('Host started playing, syncing to all...');
-              socket.emit('host-control-video', { roomCode, action: 'play' });
+              socketRef.current.emit('host-control-video', { roomCode: roomCodeRef.current, action: 'play' });
               
               // Start monitoring for seeks when playing
               if (!seekCheckInterval.current) {
                 seekCheckInterval.current = setInterval(() => {
-                  if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime) {
+                  if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime && socketRef.current) {
                     const currentTime = ytPlayerRef.current.getCurrentTime();
                     const timeDiff = Math.abs(currentTime - lastKnownTime.current);
                     
                     // If time jumped more than 2 seconds, it's a seek
                     if (timeDiff > 2 && lastKnownTime.current > 0) {
                       console.log('Host seeked to:', currentTime);
-                      socket.emit('host-seek-video', { roomCode, time: currentTime });
+                      socketRef.current.emit('host-seek-video', { roomCode: roomCodeRef.current, time: currentTime });
                     }
                     
                     lastKnownTime.current = currentTime;
@@ -142,7 +152,7 @@ export default function RoomPage() {
               }
             } else if (event.data === YT.PlayerState.PAUSED) {
               console.log('Host paused, syncing to all...');
-              socket.emit('host-control-video', { roomCode, action: 'pause' });
+              socketRef.current.emit('host-control-video', { roomCode: roomCodeRef.current, action: 'pause' });
               
               // Stop monitoring seeks when paused
               if (seekCheckInterval.current) {
@@ -153,7 +163,7 @@ export default function RoomPage() {
               // Also sync time position on pause (in case they scrubbed while paused)
               if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime) {
                 const currentTime = ytPlayerRef.current.getCurrentTime();
-                socket.emit('host-seek-video', { roomCode, time: currentTime });
+                socketRef.current.emit('host-seek-video', { roomCode: roomCodeRef.current, time: currentTime });
               }
             }
           }
@@ -168,7 +178,7 @@ export default function RoomPage() {
         ytPlayerRef.current.destroy();
       }
     };
-  }, [apiReady, socket, roomCode]);
+  }, [apiReady]); // Only reinitialize if API becomes ready
 
   // Load new video into existing player
   useEffect(() => {
@@ -377,7 +387,7 @@ export default function RoomPage() {
       setVideoState('paused');
       setGuesses([]);
       setMyGuess('');
-      setPlayerReady(false);
+      // Don't reset playerReady - keep the existing player instance
     });
 
     newSocket.on('player-left', (data) => {
@@ -395,7 +405,7 @@ export default function RoomPage() {
       setVideoState('paused');
       setGuesses([]);
       setMyGuess('');
-      setPlayerReady(false);
+      // Don't reset playerReady - keep the existing player instance
       
       // Check if I'm the new host
       const myPlayer = data.players.find((p: Player) => p.nickname === nickname);
@@ -591,42 +601,45 @@ export default function RoomPage() {
           {/* Main Game Area */}
           <div className="lg:col-span-2 space-y-4">
             {/* Video Player - Only visible to host */}
-            {currentVideo && isHost && (
+            {/* Video Player - Single player element for all users */}
+            {currentVideo && (
               <div className="bg-gray-800 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h2 className="text-xl font-semibold">Video Player (Host Only)</h2>
-                    <p className="text-sm text-gray-400 mt-1">Use the video controls below to play/pause. All participants will hear the audio.</p>
+                {isHost && (
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h2 className="text-xl font-semibold">Video Player (Host Only)</h2>
+                      <p className="text-sm text-gray-400 mt-1">Use the video controls below to play/pause. All participants will hear the audio.</p>
+                    </div>
+                    <button
+                      onClick={handleClearVideo}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold text-sm whitespace-nowrap"
+                    >
+                      Clear Video
+                    </button>
                   </div>
-                  <button
-                    onClick={handleClearVideo}
-                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold text-sm whitespace-nowrap"
-                  >
-                    Clear Video
-                  </button>
-                </div>
-                <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                  {/* Player renders here for host */}
-                  <div id="youtube-player"></div>
-                </div>
-              </div>
-            )}
-
-            {/* Audio Only View - For non-host players */}
-            {currentVideo && !isHost && (
-              <div className="bg-gray-800 rounded-lg p-6">
-                <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
-                  <div className="text-center">
-                    <h3 className="text-2xl font-bold text-white">Listen to the Song</h3>
-                    <p className="text-gray-400 mt-2">
-                      {videoState === 'playing' ? 'Song is playing...' : 'Waiting for host to play...'}
-                    </p>
+                )}
+                
+                {isHost ? (
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                    {/* Player renders here for host */}
+                    <div id="youtube-player"></div>
                   </div>
-                </div>
-                {/* Hidden player for non-host - hidden but plays audio */}
-                <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }}>
-                  <div id="youtube-player"></div>
-                </div>
+                ) : (
+                  <>
+                    <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
+                      <div className="text-center">
+                        <h3 className="text-2xl font-bold text-white">Listen to the Song</h3>
+                        <p className="text-gray-400 mt-2">
+                          {videoState === 'playing' ? 'Song is playing...' : 'Waiting for host to play...'}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Hidden player for non-host - hidden but plays audio */}
+                    <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }}>
+                      <div id="youtube-player"></div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
