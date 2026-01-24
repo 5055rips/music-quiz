@@ -601,17 +601,6 @@ export default function RoomPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Game Area */}
           <div className="lg:col-span-2 space-y-4">
-            {/* YouTube Player - Always in DOM for initialization */}
-            <div 
-              style={
-                !currentVideo || !isHost
-                  ? { position: 'fixed', top: '-9999px', left: '-9999px', width: '640px', height: '360px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }
-                  : {}
-              }
-            >
-              <div id="youtube-player"></div>
-            </div>
-
             {/* Video Player UI - Shows when video is loaded */}
             {currentVideo && (
               <div className="bg-gray-800 rounded-lg p-4">
@@ -642,6 +631,18 @@ export default function RoomPage() {
                 )}
               </div>
             )}
+
+            {/* YouTube Player Container - Single instance, positioned based on state */}
+            <div 
+              className={currentVideo && isHost ? "aspect-video bg-black rounded-lg overflow-hidden -mt-4" : ""}
+              style={
+                !currentVideo || !isHost
+                  ? { position: 'fixed', top: '-9999px', left: '-9999px', width: '640px', height: '360px', opacity: 0, pointerEvents: 'none', visibility: 'hidden' }
+                  : {}
+              }
+            >
+              <div id="youtube-player" style={{ width: '100%', height: '100%' }}></div>
+            </div>
 
             {/* Host: Submit Video */}
             {isHost && gameState === 'waiting' && (
