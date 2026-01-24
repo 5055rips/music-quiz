@@ -276,7 +276,7 @@ export default function RoomPage() {
       setVideoState(data.videoState);
       setGuesses([]);
       setMyGuess('');
-      setPlayerReady(false);
+      // Don't reset playerReady - keep the existing player instance
     });
 
     newSocket.on('video-state-changed', (data) => {
