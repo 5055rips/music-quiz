@@ -24,6 +24,25 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Health check endpoint for UptimeRobot to keep server awake
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    rooms: rooms.size
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Music Quiz Server', 
+    status: 'running',
+    rooms: rooms.size
+  });
+});
+
 // In-memory game state
 const rooms = new Map();
 const playerDisconnectTimers = new Map(); // Track disconnect timers
